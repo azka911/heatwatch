@@ -1,0 +1,75 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Central Business District Heat Core",
+        "risk": "high",
+        "severity": 3,
+        "lst_c": 35.6,
+        "ndvi": 0.18
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [101.7072, 3.1579]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dense Commercial Corridor",
+        "risk": "medium",
+        "severity": 2,
+        "lst_c": 33.1,
+        "ndvi": 0.24
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [101.6719, 3.1347]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Industrial / Low-Canopy Zone",
+        "risk": "high",
+        "severity": 3,
+        "lst_c": 36.2,
+        "ndvi": 0.12
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [101.7405, 3.121]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mixed Residential Stress Area",
+        "risk": "medium",
+        "severity": 2,
+        "lst_c": 32.7,
+        "ndvi": 0.29
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [101.6464, 3.1712]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Urban Park Cooling Buffer (Reference)",
+        "risk": "low",
+        "severity": 1,
+        "lst_c": 29.4,
+        "ndvi": 0.62
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [101.6823, 3.1466]
+      }
+    }
+  ]
+}
