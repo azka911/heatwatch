@@ -64,7 +64,7 @@ function AuthPageInner() {
         email,
         password,
         options: {
-          emailRedirectTo: "http://localhost:3000/auth/callback",
+          emailRedirectTo: "https://heatwatch-chi.vercel.app/auth/callback",
           data: { full_name: fullName },
         },
       });
