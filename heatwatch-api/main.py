@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 from database import supabase
 from functools import lru_cache
 import time
@@ -17,6 +19,7 @@ app.add_middleware(
         "http://localhost:3000",
         "https://heatwatch-chi.vercel.app",
     ],
+    allow_origin_regex=r"https://heatwatch-.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
