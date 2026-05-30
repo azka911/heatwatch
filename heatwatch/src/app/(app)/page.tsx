@@ -26,7 +26,20 @@ export default function DashboardPage() {
         </div>
 
         <div className="lg:col-span-3">
-          <InsightPanel mode={"observed"} />
+          <InsightPanel 
+            mode={"observed"} 
+            summary={{
+              avg_lst: 0,
+              avg_ndvi: 0,
+              hotspot_count: 0,
+              high_risk_count: 0,
+            }}
+            suhi={{
+              suhi: 0,
+              urban_lst: 0,
+              rural_lst: 0,
+            }}
+          />
         </div>
       </div>
     </div>
