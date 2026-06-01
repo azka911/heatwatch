@@ -9,7 +9,10 @@ import Image from "next/image";
 type Mode = "signin" | "signup";
 
 function validatePassword(pw: string) {
-  if (pw.length < 6) return "Password must be at least 6 characters.";
+  if (pw.length < 8) return "Password must be at least 8 characters.";
+  if (!/[A-Z]/.test(pw)) return "Password must contain at least one uppercase letter.";
+  if (!/[a-z]/.test(pw)) return "Password must contain at least one lowercase letter.";
+  if (!/[0-9]/.test(pw)) return "Password must contain at least one number.";
   return null;
 }
 
@@ -109,7 +112,7 @@ function AuthPageInner() {
               className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
               required />
             {mode === "signup" && (
-              <p className="mt-1 text-xs text-slate-500">Password must be at least 6 characters.</p>
+              <p className="mt-1 text-xs text-slate-500">Min 8 characters, with uppercase, lowercase, and a number.</p>
             )}
           </div>
 
