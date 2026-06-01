@@ -145,7 +145,15 @@ function AuthPageInner() {
             {mode === "signup" && (
               <p className="mt-1 text-xs text-slate-500">Min 8 characters, with uppercase, lowercase, and a number.</p>
             )}
+            {mode === "signin" && (
+              <div className="text-right mt-1">
+                <a href="/forgot-password" className="text-xs text-blue-600 hover:underline">
+                  Forgot password?
+                </a>
+              </div>
+            )}
           </div>
+          
 
           {mode === "signup" && (
             <div>
