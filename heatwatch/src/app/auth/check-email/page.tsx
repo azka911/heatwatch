@@ -6,10 +6,15 @@ export default function CheckEmailPage() {
           Check your email
         </h1>
         <p className="mt-3 text-sm text-slate-600">
-          We’ve sent you a verification link.<br />
-          Please verify your email to continue.
+          If this email address is not already registered, we've sent a verification link.<br />
+          Please check your inbox and verify your email to continue.
         </p>
-
+        <p className="mt-4 text-sm text-slate-600">
+          Already have an account?{" "}
+          <a href="/login" className="font-medium text-blue-600 hover:underline">
+            Sign in here
+          </a>
+        </p>
         <p className="mt-6 text-xs text-slate-500">
           You can close this page after verification.
         </p>
