@@ -66,6 +66,7 @@ const TABS: { key: TabKey; label: string; color: string }[] = [
 export default function Page() {
   const [tab, setTab] = useState<TabKey>("high");
   const [sort, setSort] = useState<SortKey>("lst_desc");
+  const [search, setSearch] = useState("");
   const [allRows, setAllRows] = useState<HotspotRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -95,18 +96,23 @@ export default function Page() {
     load();
   }, []);
 
-  useEffect(() => { setPage(1); }, [tab, sort]);
+  useEffect(() => { setPage(1); setSearch(""); }, [tab]);
+  useEffect(() => { setPage(1); }, [sort]);
 
   const filtered = useMemo(() => {
     let rows = allRows;
     if (tab !== "all") rows = rows.filter((r) => r.risk === tab);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      rows = rows.filter((r) => r.name.toLowerCase().includes(q));
+    }
     return [...rows].sort((a, b) => {
       if (sort === "lst_desc") return (b.lst_c ?? -Infinity) - (a.lst_c ?? -Infinity);
       if (sort === "severity_desc") return (b.severity ?? 0) - (a.severity ?? 0);
       if (sort === "ndvi_asc") return (a.ndvi ?? Infinity) - (b.ndvi ?? Infinity);
       return 0;
     });
-  }, [allRows, tab, sort]);
+  }, [allRows, tab, sort, search]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const rows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -122,12 +128,37 @@ export default function Page() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-xl font-semibold text-zinc-900">Hotspots</h1>
-        <p className="text-sm text-zinc-600">
-          Predicted heat zones for Greater Kuala Lumpur — Random Forest model
-          using MODIS LST + Sentinel-2 NDVI (2022–2024).
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-zinc-900">Hotspots</h1>
+          <p className="text-sm text-zinc-600">
+            Predicted heat zones for Greater Kuala Lumpur — Random Forest model
+            using MODIS LST + Sentinel-2 NDVI (2022–2024).
+          </p>
+        </div>
+        <div className="relative min-w-[240px]">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            placeholder="Search zones..."
+            className="w-full rounded-lg border border-zinc-200 bg-white py-2 pl-8 pr-8 text-sm outline-none focus:ring-2 focus:ring-zinc-900/10"
+          />
+          {search && (
+            <button
+              onClick={() => { setSearch(""); setPage(1); }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Stats cards */}
@@ -210,6 +241,11 @@ export default function Page() {
           {tab === "high" && "🔴 High risk zones — LST ≥36°C. Require urgent cooling interventions."}
           {tab === "medium" && "🟡 Medium risk zones — LST 33–36°C. Require monitoring and moderate interventions."}
           {tab === "low" && "🟢 Cooling zones — LST <33°C. Green reference areas that help mitigate urban heat."}
+          {search.trim() && (
+            <span className="ml-2 text-zinc-400">
+              — {filtered.length} result{filtered.length !== 1 ? "s" : ""} for &quot;{search}&quot;
+            </span>
+          )}
         </div>
 
         {/* Table */}
@@ -219,7 +255,7 @@ export default function Page() {
           </div>
         ) : rows.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-zinc-400">
-            No zones found.
+            {search.trim() ? `No zones found matching "${search}"` : "No zones found."}
           </div>
         ) : (
           <div className="overflow-x-auto">
