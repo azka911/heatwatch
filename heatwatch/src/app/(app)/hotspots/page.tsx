@@ -36,6 +36,26 @@ function RiskBadge({ risk }: { risk: Risk }) {
   );
 }
 
+function exportToCSV(data: HotspotRow[], filename: string) {
+  const headers = ["Zone", "Risk", "LST (°C)", "NDVI", "Intervention", "Rationale"];
+  const rows = data.map(r => [
+    `"${r.name}"`,
+    r.risk,
+    r.lst_c != null ? r.lst_c.toFixed(1) : "",
+    r.ndvi != null ? r.ndvi.toFixed(3) : "",
+    `"${r.intervention_type ?? ""}"`,
+    `"${r.intervention_rationale ?? ""}"`,
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 const TABS: { key: TabKey; label: string; color: string }[] = [
   { key: "all", label: "All Zones", color: "text-zinc-900" },
   { key: "high", label: "High Risk", color: "text-red-600" },
@@ -75,7 +95,6 @@ export default function Page() {
     load();
   }, []);
 
-  // Reset page when tab or sort changes
   useEffect(() => { setPage(1); }, [tab, sort]);
 
   const filtered = useMemo(() => {
@@ -159,7 +178,7 @@ export default function Page() {
             ))}
           </div>
 
-          {/* Sort */}
+          {/* Sort + Export */}
           <div className="flex items-center gap-2 py-2">
             <span className="text-xs text-zinc-500">Sort:</span>
             <select
@@ -171,6 +190,17 @@ export default function Page() {
               <option value="severity_desc">Severity</option>
               <option value="ndvi_asc">NDVI (lowest)</option>
             </select>
+
+            <button
+              onClick={() => exportToCSV(filtered, `heatwatch_${tab}_zones.csv`)}
+              disabled={loading || filtered.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-40"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+              Export CSV
+            </button>
           </div>
         </div>
 
