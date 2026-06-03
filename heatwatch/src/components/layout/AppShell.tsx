@@ -11,7 +11,6 @@ function titleFromPath(pathname: string) {
     "/dashboard": "Dashboard",
     "/hotspots": "Hotspots",
     "/methodology": "Methodology",
-    "/settings": "Settings",
     "/profile": "Profile",
   };
   return map[pathname] ?? "HeatWatch";

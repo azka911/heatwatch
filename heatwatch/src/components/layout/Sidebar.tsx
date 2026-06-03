@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Flame,
   BookOpen,
-  Settings,
   User,
   ChevronLeft,
   ChevronRight,
@@ -35,7 +34,6 @@ export default function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/hotspots", label: "Hotspots", icon: Flame },
     { href: "/methodology", label: "Methodology", icon: BookOpen },
-    { href: "/settings", label: "Settings", icon: Settings },
     { href: "/profile", label: "Profile", icon: User },
   ];
 
