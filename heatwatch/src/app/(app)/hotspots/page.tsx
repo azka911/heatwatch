@@ -70,6 +70,7 @@ export default function Page() {
   const [allRows, setAllRows] = useState<HotspotRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [copied, setCopied] = useState<string | null>(null);
   const [stats, setStats] = useState({
     total: 0, high: 0, medium: 0, low: 0
   });
@@ -98,6 +99,12 @@ export default function Page() {
 
   useEffect(() => { setPage(1); setSearch(""); }, [tab]);
   useEffect(() => { setPage(1); }, [sort]);
+
+  function copyCoords(id: string, lat: number, lng: number) {
+    navigator.clipboard.writeText(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  }
 
   const filtered = useMemo(() => {
     let rows = allRows;
@@ -269,6 +276,7 @@ export default function Page() {
                   <th className="px-4 py-3">NDVI</th>
                   <th className="px-4 py-3">Intervention</th>
                   <th className="px-4 py-3 text-zinc-400 text-[11px]">Rationale</th>
+                  <th className="px-4 py-3 text-zinc-400 text-[11px]">Coords</th>
                 </tr>
               </thead>
               <tbody>
@@ -309,6 +317,29 @@ export default function Page() {
                     <td className="px-4 py-2.5 text-[11px] text-zinc-400 max-w-xs truncate">
                       {r.intervention_rationale ?? "—"}
                     </td>
+                    <td className="px-4 py-2.5">
+                      <button
+                        onClick={() => copyCoords(r.id, r.lat, r.lng)}
+                        title="Copy coordinates"
+                        className="flex items-center gap-1 rounded-lg border border-zinc-200 px-2 py-1 text-[11px] text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700"
+                      >
+                        {copied === r.id ? (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            Copied
+                          </>
+                        ) : (
+                          <>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            Copy
+                          </>
+                        )}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -323,23 +354,15 @@ export default function Page() {
               Page {page} of {totalPages} — {filtered.length} zones
             </span>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => setPage(1)}
-                disabled={page === 1}
-                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              >«</button>
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              >‹</button>
+              <button onClick={() => setPage(1)} disabled={page === 1}
+                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40">«</button>
+              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}
+                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40">‹</button>
 
               {Array.from({ length: totalPages }, (_, i) => i + 1)
                 .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
                 .reduce<(number | string)[]>((acc, p, idx, arr) => {
-                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
-                    acc.push("...");
-                  }
+                  if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) acc.push("...");
                   acc.push(p);
                   return acc;
                 }, [])
@@ -347,29 +370,17 @@ export default function Page() {
                   p === "..." ? (
                     <span key={`e-${idx}`} className="px-1 text-xs text-zinc-400">...</span>
                   ) : (
-                    <button
-                      key={p}
-                      onClick={() => setPage(p as number)}
-                      className={[
-                        "rounded-lg border px-2.5 py-1 text-xs",
-                        page === p
-                          ? "border-zinc-900 bg-zinc-900 text-white"
-                          : "border-zinc-200 text-zinc-600 hover:bg-zinc-50",
-                      ].join(" ")}
-                    >{p}</button>
+                    <button key={p} onClick={() => setPage(p as number)}
+                      className={["rounded-lg border px-2.5 py-1 text-xs",
+                        page === p ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-600 hover:bg-zinc-50",
+                      ].join(" ")}>{p}</button>
                   )
                 )}
 
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              >›</button>
-              <button
-                onClick={() => setPage(totalPages)}
-                disabled={page === totalPages}
-                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40"
-              >»</button>
+              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}
+                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40">›</button>
+              <button onClick={() => setPage(totalPages)} disabled={page === totalPages}
+                className="rounded-lg border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-50 disabled:opacity-40">»</button>
             </div>
           </div>
         )}
