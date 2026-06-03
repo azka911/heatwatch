@@ -1,17 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  Menu,
-  Bell,
-  Globe,
-  Moon,
-  MapPinned,
-  ChevronDown,
-} from "lucide-react";
+import { Menu } from "lucide-react";
 import LogoutButton from "./LogoutButton";
 import { useProfile } from "@/context/ProfileContext";
-import { cn } from "@/lib/utils/cn";
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 type HeaderProps = {
@@ -20,7 +12,7 @@ type HeaderProps = {
 };
 
 export default function Header({ title, onOpenMobileNav }: HeaderProps) {
-  const { profile, loading } = useProfile();
+  const { profile } = useProfile();
   const supabase = useMemo(() => createSupabaseBrowserClient(), []);
 
   const [displayName, setDisplayName] = useState<string>("");
@@ -29,13 +21,11 @@ export default function Header({ title, onOpenMobileNav }: HeaderProps) {
     let alive = true;
 
     async function loadName() {
-      // 1) Prefer DB profile name
       if (profile?.full_name) {
         if (alive) setDisplayName(profile.full_name);
         return;
       }
 
-      // 2) Fallback to auth metadata (works even if profiles row doesn't exist yet)
       const { data } = await supabase.auth.getUser();
       const user = data.user;
 
@@ -47,9 +37,7 @@ export default function Header({ title, onOpenMobileNav }: HeaderProps) {
     }
 
     loadName();
-    return () => {
-      alive = false;
-    };
+    return () => { alive = false; };
   }, [profile?.full_name, supabase]);
 
   return (
@@ -74,47 +62,8 @@ export default function Header({ title, onOpenMobileNav }: HeaderProps) {
           </p>
         </div>
 
-        {/* SPACER */}
-        <div className="flex-1" />
-
-        {/* Right: city pill + icons + user */}
+        {/* Right: logout only */}
         <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              "hidden md:flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2",
-              "text-sm text-slate-700"
-            )}
-          >
-            <MapPinned className="h-4 w-4 text-slate-600" />
-            <span className="text-slate-500">City</span>
-            <span className="font-medium">Kuala Lumpur</span>
-            <ChevronDown className="h-4 w-4 text-slate-500" />
-          </div>
-
-          <button
-            type="button"
-            aria-label="Theme (placeholder)"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 hover:bg-slate-50"
-          >
-            <Moon className="h-4 w-4 text-slate-600" />
-          </button>
-
-          <button
-            type="button"
-            aria-label="Language (placeholder)"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 hover:bg-slate-50"
-          >
-            <Globe className="h-4 w-4 text-slate-600" />
-          </button>
-
-          <button
-            type="button"
-            aria-label="Notifications (placeholder)"
-            className="grid h-9 w-9 place-items-center rounded-xl border border-slate-200 hover:bg-slate-50"
-          >
-            <Bell className="h-4 w-4 text-slate-600" />
-          </button>
-
           <LogoutButton />
         </div>
       </div>
