@@ -412,29 +412,50 @@ def get_hotspots_geojson():
             detail=f"Hotspots GeoJSON failed: {str(e)}"
         )
 @app.get("/model/stats")
-def get_model_stats():
+async def get_model_stats():
     try:
-        data = supabase.table("model_runs")\
-            .select("*")\
-            .order("created_at", desc=True)\
-            .limit(1)\
-            .execute().data
+        result = supabase.table('model_runs') \
+            .select('*') \
+            .order('created_at', desc=True) \
+            .limit(1) \
+            .execute()
 
-        if not data:
-            return {
-                "model_name": "RandomForest",
-                "model_version": "v1.0",
-                "mae": None,
-                "rmse": None,
-                "r2": None
-            }
-        return data[0]
+        if not result.data:
+            raise HTTPException(status_code=404, detail="No model runs found")
+
+        row = result.data[0]
+
+        return {
+            # Identity
+            "model_name":    row.get("model_name"),
+            "model_version": row.get("model_version"),
+            "created_at":    row.get("created_at"),
+
+            # Baseline 80/20
+            "mae":  row.get("mae"),
+            "rmse": row.get("rmse"),
+            "r2":   row.get("r2"),
+            "mape": row.get("mape"),
+
+            # 5-Fold CV
+            "cv_folds":     row.get("cv_folds"),
+            "cv_r2_mean":   row.get("cv_r2_mean"),
+            "cv_r2_std":    row.get("cv_r2_std"),
+            "cv_mae_mean":  row.get("cv_mae_mean"),
+            "cv_mae_std":   row.get("cv_mae_std"),
+            "cv_rmse_mean": row.get("cv_rmse_mean"),
+            "cv_rmse_std":  row.get("cv_rmse_std"),
+
+            # Spatial CV
+            "spatial_r2_mean":    row.get("spatial_r2_mean"),
+            "spatial_r2_std":     row.get("spatial_r2_std"),
+            "spatial_mae_mean":   row.get("spatial_mae_mean"),
+            "spatial_rmse_mean":  row.get("spatial_rmse_mean"),
+            "spatial_r2_drop":    row.get("spatial_r2_drop"),
+        }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Model stats fetch failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/suhi")
 def get_suhi():
