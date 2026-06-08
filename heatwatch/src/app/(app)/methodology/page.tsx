@@ -10,6 +10,19 @@ type ModelStats = {
   mae: number;
   rmse: number;
   r2: number;
+  mape: number;
+  cv_folds: number;
+  cv_r2_mean: number;
+  cv_r2_std: number;
+  cv_mae_mean: number;
+  cv_mae_std: number;
+  cv_rmse_mean: number;
+  cv_rmse_std: number;
+  spatial_r2_mean: number;
+  spatial_r2_std: number;
+  spatial_mae_mean: number;
+  spatial_rmse_mean: number;
+  spatial_r2_drop: number;
   created_at: string;
 };
 
@@ -102,7 +115,7 @@ export default function Page() {
         />
       </div>
 
-      {/* Model Performance — real data from API */}
+      {/* Model Performance */}
       <div className="rounded-xl border border-zinc-200 bg-white p-4">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-900">
@@ -118,7 +131,6 @@ export default function Page() {
         {loading && (
           <div className="mt-4 text-sm text-zinc-400">Loading model metrics...</div>
         )}
-
         {error && (
           <div className="mt-4 text-sm text-red-500">
             Could not load model stats: {error}
@@ -126,26 +138,96 @@ export default function Page() {
         )}
 
         {stats && !loading && (
-          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <MetricCard
-              label="Mean Absolute Error (MAE)"
-              value={`${stats.mae?.toFixed(2)} °C`}
-              desc="Average prediction error in degrees Celsius"
-              color="text-blue-600"
-            />
-            <MetricCard
-              label="Root Mean Square Error (RMSE)"
-              value={`${stats.rmse?.toFixed(2)} °C`}
-              desc="Penalises larger prediction errors more heavily"
-              color="text-amber-600"
-            />
-            <MetricCard
-              label="R² Score"
-              value={stats.r2?.toFixed(3)}
-              desc="Proportion of LST variance explained by the model"
-              color={stats.r2 >= 0.6 ? "text-emerald-600" : "text-red-600"}
-            />
-          </div>
+          <>
+            {/* Baseline */}
+            <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              Baseline — 80/20 Holdout
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <MetricCard
+                label="MAE"
+                value={`${stats.mae?.toFixed(2)} °C`}
+                desc="Average prediction error"
+                color="text-blue-600"
+              />
+              <MetricCard
+                label="RMSE"
+                value={`${stats.rmse?.toFixed(2)} °C`}
+                desc="Penalises large errors more"
+                color="text-amber-600"
+              />
+              <MetricCard
+                label="R² Score"
+                value={stats.r2?.toFixed(3)}
+                desc="Variance explained by model"
+                color={stats.r2 >= 0.6 ? "text-emerald-600" : "text-red-600"}
+              />
+              <MetricCard
+                label="MAPE"
+                value={stats.mape ? `${stats.mape?.toFixed(2)}%` : "—"}
+                desc="Mean absolute % error"
+                color="text-violet-600"
+              />
+            </div>
+
+            {/* 5-Fold CV */}
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              5-Fold Cross-Validation
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <MetricCard
+                label="CV R² Mean"
+                value={stats.cv_r2_mean ? stats.cv_r2_mean?.toFixed(3) : "—"}
+                desc={`± ${stats.cv_r2_std?.toFixed(3) ?? "—"} across 5 folds`}
+                color="text-emerald-600"
+              />
+              <MetricCard
+                label="CV MAE Mean"
+                value={stats.cv_mae_mean ? `${stats.cv_mae_mean?.toFixed(2)} °C` : "—"}
+                desc={`± ${stats.cv_mae_std?.toFixed(2) ?? "—"} °C across 5 folds`}
+                color="text-blue-600"
+              />
+              <MetricCard
+                label="CV RMSE Mean"
+                value={stats.cv_rmse_mean ? `${stats.cv_rmse_mean?.toFixed(2)} °C` : "—"}
+                desc={`± ${stats.cv_rmse_std?.toFixed(2) ?? "—"} °C across 5 folds`}
+                color="text-amber-600"
+              />
+            </div>
+
+            {/* Spatial CV */}
+            <p className="mt-5 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+              Spatial Block Cross-Validation
+            </p>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <MetricCard
+                label="Spatial R² Mean"
+                value={stats.spatial_r2_mean ? stats.spatial_r2_mean?.toFixed(3) : "—"}
+                desc={`± ${stats.spatial_r2_std?.toFixed(3) ?? "—"} across blocks`}
+                color="text-emerald-600"
+              />
+              <MetricCard
+                label="Spatial MAE"
+                value={stats.spatial_mae_mean ? `${stats.spatial_mae_mean?.toFixed(2)} °C` : "—"}
+                desc="Avg error on unseen locations"
+                color="text-blue-600"
+              />
+              <MetricCard
+                label="Spatial R² Drop"
+                value={stats.spatial_r2_drop != null ? stats.spatial_r2_drop?.toFixed(3) : "—"}
+                desc={
+                  stats.spatial_r2_drop != null && stats.spatial_r2_drop < 0.05
+                    ? "✅ No spatial leakage"
+                    : "⚠️ Spatial autocorrelation present"
+                }
+                color={
+                  stats.spatial_r2_drop != null && stats.spatial_r2_drop < 0.05
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                }
+              />
+            </div>
+          </>
         )}
       </div>
 
@@ -196,9 +278,9 @@ export default function Page() {
         <h2 className="text-sm font-semibold text-zinc-900">Dataset Summary</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Total Samples", value: "1,936" },
-            { label: "Training Set", value: "1,548 (80%)" },
-            { label: "Test Set", value: "388 (20%)" },
+            { label: "Total Samples", value: "1,934" },
+            { label: "Training Set", value: "1,547 (80%)" },
+            { label: "Test Set", value: "387 (20%)" },
             { label: "Study Period", value: "2022–2024" },
           ].map((item) => (
             <div key={item.label} className="rounded-lg border border-zinc-200 bg-zinc-50 p-3">
@@ -218,7 +300,8 @@ export default function Page() {
           <li>• Road proximity feature has near-zero importance — may require OSM integration for improvement.</li>
           <li>• Hotspot thresholds (36°C high, 33°C medium) are based on observed KL LST distribution.</li>
           <li>• Cooling interventions are rule-based — not ML predicted — and serve as planning suggestions only.</li>
-          <li>• Model R² of 0.653 indicates moderate predictive power; NDVI is the dominant feature.</li>
+          <li>• Model R² of 0.652 indicates moderate predictive power; NDVI is the dominant feature.</li>
+          <li>• Spatial cross-validation shows R² drop of 0.158 — expected due to spatial autocorrelation in satellite data.</li>
         </ul>
       </div>
     </div>
