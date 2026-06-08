@@ -241,8 +241,6 @@ export default function Page() {
           {[
             { feature: "NDVI (Vegetation Index)", importance: 89.4, color: "bg-emerald-500" },
             { feature: "Land Cover Class", importance: 10.6, color: "bg-blue-500" },
-            { feature: "Road Proximity", importance: 0.0, color: "bg-amber-500" },
-            { feature: "Month Index", importance: 0.0, color: "bg-zinc-400" },
           ].map((f) => (
             <div key={f.feature}>
               <div className="flex items-center justify-between text-xs text-zinc-600">
