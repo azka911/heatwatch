@@ -92,12 +92,13 @@ export default function Page() {
         <h1 className="text-xl font-semibold text-zinc-900">Data & Methodology</h1>
         <p className="text-sm text-zinc-600">
           Study area is fixed to Kuala Lumpur. Real satellite data from MODIS and
-          Sentinel-2 processed via Google Earth Engine.
+          Sentinel-2 processed via Google Earth Engine, combined with topographic
+          and spatial context features.
         </p>
       </div>
 
       {/* Data sources */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card
           title="MODIS Land Surface Temperature (LST)"
           desc="Daily thermal data at 1km resolution. Converted to Celsius using scale factor 0.02 − 273.15. Averaged over 2022–2024."
@@ -112,6 +113,11 @@ export default function Page() {
           title="ESA WorldCover Land Cover"
           desc="10m resolution land cover classification used as a model input feature to distinguish built-up, vegetation, and water zones."
           tags={["Land cover", "10m resolution", "ESA", "Urban morphology"]}
+        />
+        <Card
+          title="Topographic & Spatial Context"
+          desc="Elevation derived from NASA NASADEM (30m resolution) and distance to city center (KLCC), used to capture terrain effects and urban-rural gradients on surface temperature."
+          tags={["Elevation", "30m resolution", "NASADEM", "Distance to CBD"]}
         />
       </div>
 
@@ -239,8 +245,10 @@ export default function Page() {
         </p>
         <div className="mt-4 space-y-3">
           {[
-            { feature: "NDVI (Vegetation Index)", importance: 89.4, color: "bg-emerald-500" },
-            { feature: "Land Cover Class", importance: 10.6, color: "bg-blue-500" },
+            { feature: "NDVI (Vegetation Index)", importance: 68.5, color: "bg-emerald-500" },
+            { feature: "Elevation", importance: 11.8, color: "bg-violet-500" },
+            { feature: "Distance to CBD", importance: 10.0, color: "bg-amber-500" },
+            { feature: "Land Cover Class", importance: 9.6, color: "bg-blue-500" },
           ].map((f) => (
             <div key={f.feature}>
               <div className="flex items-center justify-between text-xs text-zinc-600">
@@ -263,11 +271,12 @@ export default function Page() {
         <h2 className="text-sm font-semibold text-zinc-900">Workflow</h2>
         <ol className="mt-3 space-y-2 text-sm text-zinc-700">
           <li>1. Acquire MODIS LST and Sentinel-2 NDVI via Google Earth Engine for KL (2022–2024).</li>
-          <li>2. Export 1,936 sample points clipped to KL bounding box at 1km grid resolution.</li>
-          <li>3. Train Random Forest Regressor on NDVI, land cover, road proximity, and month index.</li>
-          <li>4. Classify predicted LST into hotspot levels — high (≥36°C), medium (≥33°C), low (&lt;33°C).</li>
-          <li>5. Apply rule-based cooling interventions based on hotspot level and vegetation cover.</li>
-          <li>6. Visualize results in HeatWatch dashboard with interactive map and analytical insights.</li>
+          <li>2. Export 1,932 sample points clipped to KL bounding box at 1km grid resolution.</li>
+          <li>3. Derive elevation (NASADEM) and distance to CBD (KLCC) for each zone using its coordinates.</li>
+          <li>4. Train Random Forest Regressor on NDVI, land cover, month index, distance to CBD, and elevation.</li>
+          <li>5. Classify predicted LST into hotspot levels — high (≥36°C), medium (≥33°C), low (&lt;33°C).</li>
+          <li>6. Apply rule-based cooling interventions based on hotspot level and vegetation cover.</li>
+          <li>7. Visualize results in HeatWatch dashboard with interactive map and analytical insights.</li>
         </ol>
       </div>
 
@@ -276,8 +285,8 @@ export default function Page() {
         <h2 className="text-sm font-semibold text-zinc-900">Dataset Summary</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[
-            { label: "Total Samples", value: "1,934" },
-            { label: "Training Set", value: "1,547 (80%)" },
+            { label: "Total Samples", value: "1,932" },
+            { label: "Training Set", value: "1,545 (80%)" },
             { label: "Test Set", value: "387 (20%)" },
             { label: "Study Period", value: "2022–2024" },
           ].map((item) => (
@@ -295,11 +304,11 @@ export default function Page() {
         <ul className="mt-3 space-y-2 text-sm text-zinc-700">
           <li>• Study area is locked to Kuala Lumpur to maintain city-scale analytical focus.</li>
           <li>• LST values represent daytime surface temperature averaged over 2022–2024.</li>
-          <li>• Road proximity feature has near-zero importance — may require OSM integration for improvement.</li>
           <li>• Hotspot thresholds (36°C high, 33°C medium) are based on observed KL LST distribution.</li>
           <li>• Cooling interventions are rule-based — not ML predicted — and serve as planning suggestions only.</li>
-          <li>• Model R² of 0.652 indicates moderate predictive power; NDVI is the dominant feature.</li>
-          <li>• Spatial cross-validation shows R² drop of 0.158 — expected due to spatial autocorrelation in satellite data.</li>
+          <li>• Model R² of 0.841 indicates strong predictive power, improved from an earlier baseline of 0.652 by incorporating elevation and distance-to-CBD features.</li>
+          <li>• Spatial cross-validation shows an R² drop of 0.122 — reduced from 0.158 in the earlier model — indicating improved but still present spatial autocorrelation effects.</li>
+          <li>• Spatial CV R² of 0.699 represents expected performance on geographically unseen zones; future work includes additional spatial features (e.g., neighbouring zone LST, land use diversity) to further reduce this gap.</li>
         </ul>
       </div>
     </div>
