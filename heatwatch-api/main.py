@@ -1300,3 +1300,123 @@ def update_zone_names():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@app.post("/admin/update-zone-names-resume")
+def update_zone_names_resume():
+    """Resume naming for zones still named Zone_X"""
+    try:
+        import requests
+        import time
+
+        all_zones = []
+        page = 0
+        page_size = 500
+
+        while True:
+            batch = supabase.table("zones")\
+                .select("zone_id, lat, lng, zone_name")\
+                .like("zone_name", "Zone_%")\
+                .range(page * page_size, (page + 1) * page_size - 1)\
+                .execute().data
+            if not batch:
+                break
+            all_zones.extend(batch)
+            page += 1
+            if len(batch) < page_size:
+                break
+
+        print(f"Zones to retry: {len(all_zones)}")
+
+        success = 0
+        failed = 0
+
+        for i, zone in enumerate(all_zones):
+            lat = zone.get("lat")
+            lng = zone.get("lng")
+
+            if lat is None or lng is None:
+                continue
+
+            try:
+                res = requests.get(
+                    "https://nominatim.openstreetmap.org/reverse",
+                    params={
+                        "lat": lat,
+                        "lon": lng,
+                        "format": "json",
+                        "zoom": 14,
+                        "addressdetails": 1
+                    },
+                    headers={"User-Agent": "HeatWatch-FYP/1.0 (contact@example.com)"},
+                    timeout=10
+                )
+
+                if res.status_code != 200:
+                    print(f"[{i+1}/{len(all_zones)}] → HTTP {res.status_code}, skipping")
+                    failed += 1
+                    time.sleep(2)
+                    continue
+
+                data = res.json()
+                addr = data.get("address", {})
+
+                name = (
+                    addr.get("suburb") or
+                    addr.get("neighbourhood") or
+                    addr.get("quarter") or
+                    addr.get("village") or
+                    addr.get("town") or
+                    addr.get("city_district") or
+                    addr.get("municipality") or
+                    addr.get("county") or
+                    addr.get("state_district") or
+                    addr.get("city") or
+                    None
+                )
+
+                if not name:
+                    display = data.get("display_name", "")
+                    if display:
+                        parts = [p.strip() for p in display.split(",")]
+                        for part in parts:
+                            if part and not part.isdigit() and len(part) > 2:
+                                name = part
+                                break
+
+                district = addr.get("city_district") or addr.get("county") or ""
+                if name and district and name != district:
+                    name = f"{name}, {district}"
+
+                if name:
+                    supabase.table("zones")\
+                        .update({"zone_name": name})\
+                        .eq("zone_id", zone["zone_id"])\
+                        .execute()
+                    success += 1
+                    print(f"[{i+1}/{len(all_zones)}] → {name}")
+                else:
+                    fallback = f"KL Grid ({lat:.3f}N, {lng:.3f}E)"
+                    supabase.table("zones")\
+                        .update({"zone_name": fallback})\
+                        .eq("zone_id", zone["zone_id"])\
+                        .execute()
+                    failed += 1
+                    print(f"[{i+1}/{len(all_zones)}] → {fallback} (fallback)")
+
+            except Exception as e:
+                print(f"[{i+1}/{len(all_zones)}] → error: {e}")
+                failed += 1
+
+            time.sleep(2)
+
+        _cache.clear()
+
+        return {
+            "message": "Done",
+            "success": success,
+            "failed": failed,
+            "total": len(all_zones)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
