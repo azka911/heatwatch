@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split, KFold, cross_val_score, GroupKFold
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, mean_absolute_percentage_error
+from geopy.distance import geodesic
 import joblib
 import json
 from supabase import create_client
@@ -15,6 +16,7 @@ supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
 # Load GEE data
 print("Loading data...")
 df = pd.read_csv('HeatWatch_KL_Dataset.csv')
+elev_df = pd.read_csv('HeatWatch_Elevation.csv')
 
 # Parse coordinates from .geo column
 def parse_coords(geo_str):
@@ -28,6 +30,12 @@ def parse_coords(geo_str):
 df[['lng', 'lat']] = df['.geo'].apply(
     lambda x: pd.Series(parse_coords(x))
 )
+elev_df[['e_lng', 'e_lat']] = elev_df['.geo'].apply(
+    lambda x: pd.Series(parse_coords(x))
+)
+
+# Attach elevation by row index (both exports from same source grid, same order)
+df['elevation'] = elev_df['elevation']
 
 # Clean data
 df = df.dropna(subset=['lst', 'ndvi', 'landcover'])
@@ -40,12 +48,26 @@ df['near_road'] = 0
 df = df[(df['lst'] >= 22) & (df['lst'] <= 45)]
 df = df[(df['ndvi'] >= -0.1) & (df['ndvi'] <= 1.0)]
 
+# Drop rows with missing elevation
+df = df.dropna(subset=['elevation'])
+
+# Add distance to CBD (KLCC)
+KLCC = (3.1579, 101.7116)
+df['dist_to_cbd'] = df.apply(
+    lambda r: geodesic((r['lat'], r['lng']), KLCC).km, axis=1
+)
+
+# Reset index after filtering for clean seeding loop
+df = df.reset_index(drop=True)
+
 print(f"Clean dataset: {df.shape}")
 print(f"LST range: {df['lst'].min():.1f} - {df['lst'].max():.1f} °C")
 print(f"NDVI range: {df['ndvi'].min():.3f} - {df['ndvi'].max():.3f}")
+print(f"Elevation range: {df['elevation'].min():.1f} - {df['elevation'].max():.1f} m")
+print(f"Dist to CBD range: {df['dist_to_cbd'].min():.2f} - {df['dist_to_cbd'].max():.2f} km")
 
 # Features and target
-X = df[['ndvi', 'landcover', 'month_index']]
+X = df[['ndvi', 'landcover', 'month_index', 'dist_to_cbd', 'elevation']]
 y = df['lst']
 
 # ── Baseline 80/20 ─────────────────────────────────────────────────────────────
@@ -144,7 +166,7 @@ supabase.table('summary_stats').update({
 # ── Save model run metrics to Supabase ─────────────────────────────────────────
 supabase.table('model_runs').insert({
     'model_name':    'RandomForest',
-    'model_version': 'v2.0-modis',
+    'model_version': 'v3.0-spatial',
     # Baseline
     'mae':  round(mae, 4),
     'rmse': round(rmse, 4),
@@ -186,7 +208,9 @@ for i, row in df.iterrows():
             'ndvi_mean':       float(row['ndvi']),
             'landcover_class': int(row['landcover']),
             'road_dist':       0.0,
-            'lst':             float(row['lst'])
+            'lst':             float(row['lst']),
+            'dist_to_cbd':     float(row['dist_to_cbd']),
+            'elevation':       float(row['elevation']),
         }).execute()
 
         if i % 200 == 0:

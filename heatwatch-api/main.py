@@ -703,7 +703,7 @@ def run_predictions():
             try:
                 # Skip rows with missing required features
                 if any(f.get(col) is None for col in
-                       ["ndvi_mean", "landcover_class", "month_index"]):
+                       ["ndvi_mean", "landcover_class", "month_index", "dist_to_cbd", "elevation"]):
                     skipped += 1
                     continue
 
@@ -711,8 +711,10 @@ def run_predictions():
                 X = pd.DataFrame([[
                     f["ndvi_mean"],
                     f["landcover_class"],
-                    f["month_index"]
-                ]], columns=['ndvi', 'landcover', 'month_index'])
+                    f["month_index"],
+                    f["dist_to_cbd"],
+                    f["elevation"]
+                ]], columns=['ndvi', 'landcover', 'month_index', 'dist_to_cbd', 'elevation'])
 
                 lst_pred = float(model.predict(X)[0])
 
@@ -773,7 +775,8 @@ def run_predictions():
             status_code=500,
             detail=f"Prediction run failed: {str(e)}"
         )
-
+        
+        
 @app.get("/features/geojson")
 def get_features_geojson():
     try:
