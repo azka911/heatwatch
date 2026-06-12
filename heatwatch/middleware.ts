@@ -27,9 +27,12 @@ export async function middleware(req: NextRequest) {
 
   const path = req.nextUrl.pathname;
 
-  // Protect everything in the dashboard group (and other app pages), but allow /login
+  // Protect dashboard and app pages - "/" is now the public landing page
   const isProtected =
-    path === "/" ||
+    path.startsWith("/dashboard") ||
+    path.startsWith("/hotspots") ||
+    path.startsWith("/methodology") ||
+    path.startsWith("/profile") ||
     path.startsWith("/analysis") ||
     path.startsWith("/interventions") ||
     path.startsWith("/data") ||
@@ -45,7 +48,7 @@ export async function middleware(req: NextRequest) {
   // If already logged in and trying to access login, redirect to dashboard
   if (path === "/login" && user) {
     const url = req.nextUrl.clone();
-    url.pathname = "/";
+    url.pathname = "/dashboard";
     return NextResponse.redirect(url);
   }
 
@@ -53,5 +56,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/analysis/:path*", "/interventions/:path*", "/data/:path*", "/settings/:path*", "/login"],
+  matcher: ["/dashboard/:path*", "/hotspots/:path*", "/methodology/:path*", "/profile/:path*", "/analysis/:path*", "/interventions/:path*", "/data/:path*", "/settings/:path*", "/login"],
 };
