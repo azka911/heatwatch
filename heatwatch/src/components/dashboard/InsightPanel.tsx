@@ -121,7 +121,7 @@ export default function InsightPanel({ mode, summary, suhi }: InsightPanelProps)
           <>
             <p>• Model predicts {summary.high_risk_count} high risk zones with LST ≥36°C across Greater KL.</p>
             <p>• Urban zones average {suhi.urban_lst}°C vs rural {suhi.rural_lst}°C — SUHI of +{suhi.suhi}°C.</p>
-            <p>• NDVI is the strongest predictor (89.2% importance) — greening reduces LST effectively.</p>
+            <p>• NDVI is the strongest predictor (68.5% importance) — greening reduces LST effectively.</p>
           </>
         ) : (
           <>

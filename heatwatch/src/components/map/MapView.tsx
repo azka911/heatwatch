@@ -261,6 +261,8 @@ export default function MapView({
     const mapbox = mapboxRef.current;
     if (!mapbox) return;
 
+     popupRef.current?.remove();
+
     async function reloadForMode() {
       await fetchAndAddHotspots(map!, popupRef, mapbox, mode, currentModeRef);
       await fetchAndAddMediumRisk(map!, mapbox, mode, currentModeRef);
