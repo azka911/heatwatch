@@ -10,7 +10,7 @@ export default function LogoutButton() {
 
   async function logout() {
     await supabase.auth.signOut();
-    router.replace("/login");
+    window.location.href = "/login";
   }
 
   return (
