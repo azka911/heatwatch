@@ -1187,10 +1187,14 @@ def get_observed_by_risk(risk_level: str):
 
 @app.post("/admin/update-zone-names")
 def update_zone_names():
-    """Update zone names via Nominatim reverse geocoding"""
+    """Update zone names via LocationIQ reverse geocoding (resumes from Zone_X placeholders)"""
     try:
         import requests
         import time
+
+        LOCATIONIQ_KEY = os.getenv("LOCATIONIQ_TOKEN")
+        if not LOCATIONIQ_KEY:
+            raise HTTPException(status_code=500, detail="LOCATIONIQ_TOKEN not set in environment")
 
         all_zones = []
         page = 0
@@ -1198,7 +1202,8 @@ def update_zone_names():
 
         while True:
             batch = supabase.table("zones")\
-                .select("zone_id, lat, lng")\
+                .select("zone_id, lat, lng, zone_name")\
+                .like("zone_name", "Zone_%")\
                 .range(page * page_size, (page + 1) * page_size - 1)\
                 .execute().data
             if not batch:
@@ -1208,10 +1213,12 @@ def update_zone_names():
             if len(batch) < page_size:
                 break
 
-        print(f"Total zones: {len(all_zones)}")
+        print(f"Remaining zones to name: {len(all_zones)}")
 
         success = 0
         failed = 0
+        consecutive_failures = 0
+        MAX_CONSECUTIVE_FAILURES = 5
 
         for i, zone in enumerate(all_zones):
             lat = zone.get("lat")
@@ -1222,22 +1229,42 @@ def update_zone_names():
 
             try:
                 res = requests.get(
-                    "https://nominatim.openstreetmap.org/reverse",
+                    "https://us1.locationiq.com/v1/reverse",
                     params={
+                        "key": LOCATIONIQ_KEY,
                         "lat": lat,
                         "lon": lng,
                         "format": "json",
                         "zoom": 14,
                         "addressdetails": 1
                     },
-                    headers={"User-Agent": "HeatWatch-FYP/1.0"},
                     timeout=5
                 )
+
+                if res.status_code != 200:
+                    print(f"[{i+1}/{len(all_zones)}] → HTTP {res.status_code}: {res.text[:200]}")
+                    failed += 1
+                    consecutive_failures += 1
+
+                    if res.status_code == 429:
+                        time.sleep(5)
+                    else:
+                        time.sleep(2)
+
+                    if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                        return {
+                            "message": "Aborted — too many consecutive failures",
+                            "success": success,
+                            "failed": failed,
+                            "processed": i + 1,
+                            "total": len(all_zones),
+                            "last_status_code": res.status_code
+                        }
+                    continue
 
                 data = res.json()
                 addr = data.get("address", {})
 
-                # Try progressively broader fields
                 name = (
                     addr.get("suburb") or
                     addr.get("neighbourhood") or
@@ -1252,20 +1279,16 @@ def update_zone_names():
                     None
                 )
 
-                # Fallback — use first part of display_name
                 if not name:
                     display = data.get("display_name", "")
                     if display:
                         parts = [p.strip() for p in display.split(",")]
-                        # Skip house numbers, take first meaningful part
                         for part in parts:
                             if part and not part.isdigit() and len(part) > 2:
                                 name = part
                                 break
 
-                # Add district context
-                district = addr.get("city_district") or \
-                           addr.get("county") or ""
+                district = addr.get("city_district") or addr.get("county") or ""
                 if name and district and name != district:
                     name = f"{name}, {district}"
 
@@ -1277,7 +1300,6 @@ def update_zone_names():
                     success += 1
                     print(f"[{i+1}/{len(all_zones)}] → {name}")
                 else:
-                    # Last resort — use coordinate reference
                     fallback = f"KL Grid ({lat:.3f}N, {lng:.3f}E)"
                     supabase.table("zones")\
                         .update({"zone_name": fallback})\
@@ -1286,11 +1308,22 @@ def update_zone_names():
                     failed += 1
                     print(f"[{i+1}/{len(all_zones)}] → {fallback} (fallback)")
 
+                consecutive_failures = 0
+
             except Exception as e:
                 print(f"[{i+1}/{len(all_zones)}] → error: {e}")
                 failed += 1
+                consecutive_failures += 1
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    return {
+                        "message": "Aborted — too many consecutive exceptions",
+                        "success": success,
+                        "failed": failed,
+                        "processed": i + 1,
+                        "total": len(all_zones)
+                    }
 
-            time.sleep(1)
+            time.sleep(2)
 
         _cache.clear()
 
@@ -1303,4 +1336,3 @@ def update_zone_names():
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
