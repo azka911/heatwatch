@@ -82,6 +82,7 @@ export default function MapView({
   const popupRef = useRef<mapboxgl.Popup | null>(null);
   const mapboxRef = useRef<any>(null);
   const mountedRef = useRef(false);
+  const currentModeRef = useRef<string>(mode);
   const [isReady, setIsReady] = useState(false);
   const layersLoadedRef = useRef(false);
 
@@ -144,9 +145,9 @@ export default function MapView({
         if (cancelled) return;
 
         await fetchAndAddGrid(map);
-        await fetchAndAddHotspots(map, popupRef, mapbox, mode);
-        await fetchAndAddMediumRisk(map, mapbox, mode);
-        await fetchAndAddLowRisk(map, mapbox, mode);
+        await fetchAndAddHotspots(map, popupRef, mapbox, mode, currentModeRef);
+        await fetchAndAddMediumRisk(map, mapbox, mode, currentModeRef);
+        await fetchAndAddLowRisk(map, mapbox, mode, currentModeRef);
 
         layersLoadedRef.current = true;
 
@@ -199,9 +200,9 @@ export default function MapView({
       const mapbox = mapboxRef.current;
       await fetchAndAddGrid(map);
       if (mapbox) {
-        await fetchAndAddHotspots(map, popupRef, mapbox, mode);
-        await fetchAndAddMediumRisk(map, mapbox, mode);
-        await fetchAndAddLowRisk(map, mapbox, mode);
+        await fetchAndAddHotspots(map, popupRef, mapbox, mode, currentModeRef);
+        await fetchAndAddMediumRisk(map, mapbox, mode, currentModeRef);
+        await fetchAndAddLowRisk(map, mapbox, mode, currentModeRef);
       }
 
       layersLoadedRef.current = true;
@@ -229,13 +230,13 @@ export default function MapView({
         await fetchAndAddGrid(map);
       }
       if (showHotspots && !map.getLayer(HOTSPOT_LAYER_ID)) {
-        if (mapbox) await fetchAndAddHotspots(map, popupRef, mapbox, mode);
+        if (mapbox) await fetchAndAddHotspots(map, popupRef, mapbox, mode, currentModeRef);
       }
       if (showMediumRisk && !map.getLayer(MEDIUM_LAYER_ID)) {
-        if (mapbox) await fetchAndAddMediumRisk(map, mapbox, mode);
+        if (mapbox) await fetchAndAddMediumRisk(map, mapbox, mode, currentModeRef);
       }
       if (showLowRisk && !map.getLayer(LOW_LAYER_ID)) {
-        if (mapbox) await fetchAndAddLowRisk(map, mapbox, mode);
+        if (mapbox) await fetchAndAddLowRisk(map, mapbox, mode, currentModeRef);
       }
 
       applyLayerVisibility(
@@ -249,8 +250,10 @@ export default function MapView({
   }, [showTerrain, showBuildings, showHotspots, showHeatmap,
       showMediumRisk, showLowRisk, isReady]);
 
-  // Mode change
+  // Mode change — update ref first, then refetch
   useEffect(() => {
+    currentModeRef.current = mode;
+
     const map = mapRef.current;
     if (!map || !isReady) return;
     if (!layersLoadedRef.current) return;
@@ -259,18 +262,9 @@ export default function MapView({
     if (!mapbox) return;
 
     async function reloadForMode() {
-      // Remove all risk layers
-      if (map!.getLayer(HOTSPOT_LAYER_ID)) map!.removeLayer(HOTSPOT_LAYER_ID);
-      if (map!.getSource(HOTSPOT_SOURCE_ID)) map!.removeSource(HOTSPOT_SOURCE_ID);
-      if (map!.getLayer(MEDIUM_LAYER_ID)) map!.removeLayer(MEDIUM_LAYER_ID);
-      if (map!.getSource(MEDIUM_SOURCE_ID)) map!.removeSource(MEDIUM_SOURCE_ID);
-      if (map!.getLayer(LOW_LAYER_ID)) map!.removeLayer(LOW_LAYER_ID);
-      if (map!.getSource(LOW_SOURCE_ID)) map!.removeSource(LOW_SOURCE_ID);
-
-      // Reload with new mode — each called ONCE
-      await fetchAndAddHotspots(map!, popupRef, mapbox, mode);
-      await fetchAndAddMediumRisk(map!, mapbox, mode);
-      await fetchAndAddLowRisk(map!, mapbox, mode);
+      await fetchAndAddHotspots(map!, popupRef, mapbox, mode, currentModeRef);
+      await fetchAndAddMediumRisk(map!, mapbox, mode, currentModeRef);
+      await fetchAndAddLowRisk(map!, mapbox, mode, currentModeRef);
 
       applyLayerVisibility(
         map!,
@@ -385,18 +379,23 @@ async function fetchAndAddHotspots(
   map: mapboxgl.Map,
   popupRef: React.MutableRefObject<mapboxgl.Popup | null>,
   mapbox: any,
-  mode: string = "observed"
+  mode: string = "observed",
+  currentModeRef?: React.MutableRefObject<string>
 ) {
   try {
-    // Observed → real MODIS top 50 high LST
-    // Predicted → RF model top 50 high predicted LST
     const endpoint = mode === "predicted"
       ? `${API}/hotspots/by-risk/high`
-      : `${API}/hotspots/observed/high`; 
+      : `${API}/hotspots/observed/high`;
 
     const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const geojson = await res.json();
+
+    // Skip if mode changed while fetching (prevents stale data overwrite)
+    if (currentModeRef && currentModeRef.current !== mode) {
+      return;
+    }
+    console.log("[APPLY]", mode, "lst_c:", geojson.features?.[0]?.properties?.lst_c);
 
     if (!map.getSource(HOTSPOT_SOURCE_ID)) {
       map.addSource(HOTSPOT_SOURCE_ID, { type: "geojson", data: geojson });
@@ -455,16 +454,22 @@ async function fetchAndAddHotspots(
 async function fetchAndAddMediumRisk(
   map: mapboxgl.Map,
   mapbox: any,
-  mode: string = "observed"
+  mode: string = "observed",
+  currentModeRef?: React.MutableRefObject<string>
 ) {
   try {
     const endpoint = mode === "predicted"
       ? `${API}/hotspots/by-risk/medium`
-      : `${API}/hotspots/observed/medium`; // same for now — both use predictions
+      : `${API}/hotspots/observed/medium`;
 
     const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const geojson = await res.json();
+
+    // Skip if mode changed while fetching
+    if (currentModeRef && currentModeRef.current !== mode) {
+      return;
+    }
 
     if (!map.getSource(MEDIUM_SOURCE_ID)) {
       map.addSource(MEDIUM_SOURCE_ID, { type: "geojson", data: geojson });
@@ -515,16 +520,22 @@ async function fetchAndAddMediumRisk(
 async function fetchAndAddLowRisk(
   map: mapboxgl.Map,
   mapbox: any,
-  mode: string = "observed"
+  mode: string = "observed",
+  currentModeRef?: React.MutableRefObject<string>
 ) {
   try {
     const endpoint = mode === "predicted"
       ? `${API}/hotspots/by-risk/low`
-      : `${API}/hotspots/observed/low`; // same for now
+      : `${API}/hotspots/observed/low`;
 
     const res = await fetch(endpoint);
     if (!res.ok) throw new Error(`API error: ${res.status}`);
     const geojson = await res.json();
+
+    // Skip if mode changed while fetching
+    if (currentModeRef && currentModeRef.current !== mode) {
+      return;
+    }
 
     if (!map.getSource(LOW_SOURCE_ID)) {
       map.addSource(LOW_SOURCE_ID, { type: "geojson", data: geojson });
@@ -648,8 +659,8 @@ function buildPopupHtml(props: any, riskLabel: string): string {
   const name = escapeHtml(String(props?.name ?? "Zone"));
   const lst = props?.lst_c != null ? Number(props.lst_c) : null;
   const ndvi = props?.ndvi != null ? Number(props.ndvi) : null;
-  const intervention = escapeHtml(String(props?.intervention_type ?? "—"));
-  const rationale = escapeHtml(String(props?.intervention_rationale ?? "—"));
+  const intervention = escapeHtml(String(props?.intervention_type ?? "\u2014"));
+  const rationale = escapeHtml(String(props?.intervention_rationale ?? "\u2014"));
 
   const cityAvgLst = 33.4;
   const uhiContribution = lst != null ? (lst - cityAvgLst).toFixed(1) : null;
@@ -661,7 +672,7 @@ function buildPopupHtml(props: any, riskLabel: string): string {
     ? "#f59e0b"
     : "#22c55e";
 
-  const ndviLabel = ndvi == null ? "—"
+  const ndviLabel = ndvi == null ? "\u2014"
     : ndvi < 0.15 ? "Critically sparse"
     : ndvi < 0.2 ? "Very sparse vegetation"
     : ndvi < 0.3 ? "Low vegetation"
@@ -669,7 +680,7 @@ function buildPopupHtml(props: any, riskLabel: string): string {
     : ndvi < 0.6 ? "Good vegetation"
     : "Dense vegetation";
 
-  const lstLabel = lst == null ? "—"
+  const lstLabel = lst == null ? "\u2014"
     : lst >= 38 ? "Extreme heat"
     : lst >= 36 ? "High heat"
     : lst >= 33 ? "Moderate heat"
@@ -703,10 +714,10 @@ function buildPopupHtml(props: any, riskLabel: string): string {
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <span style="color:#6b7280;">Surface Temp</span>
           <span style="font-weight:600;color:#111827;">
-            ${lst != null ? lst.toFixed(1) + "°C" : "—"}
+            ${lst != null ? lst.toFixed(1) + "\u00B0C" : "\u2014"}
             ${uhiContribution != null
               ? `<span style="color:${Number(uhiContribution) > 0 ? "#ef4444" : "#22c55e"};font-size:10px;">
-                  (${uhiSign}${uhiContribution}°C vs avg)
+                  (${uhiSign}${uhiContribution}\u00B0C vs avg)
                 </span>`
               : ""}
           </span>
@@ -715,7 +726,7 @@ function buildPopupHtml(props: any, riskLabel: string): string {
         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
           <span style="color:#6b7280;">Vegetation</span>
           <span style="font-weight:600;color:#111827;">
-            ${ndvi != null ? ndvi.toFixed(3) : "—"}
+            ${ndvi != null ? ndvi.toFixed(3) : "\u2014"}
             <span style="color:#6b7280;font-size:10px;font-weight:400;">
               (${ndviLabel})
             </span>
